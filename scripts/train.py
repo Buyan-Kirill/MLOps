@@ -16,7 +16,7 @@ from torch.optim.lr_scheduler import (
 from tqdm import tqdm
 import sys
 import random
-from typing import List, Tuple, Dict, Any, Optional, Union
+from typing import Tuple
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
@@ -55,12 +55,8 @@ class ContrastiveBookDataset(Dataset):
         )
         self.books_meta = self.books_meta.reset_index(drop=True)
 
-        self.embeddings = torch.tensor(
-            book_embeddings, dtype=torch.float32
-        )
-        self.desc_original = torch.tensor(
-            desc_original, dtype=torch.float32
-        )
+        self.embeddings = torch.tensor(book_embeddings, dtype=torch.float32)
+        self.desc_original = torch.tensor(desc_original, dtype=torch.float32)
         self.num_negatives = num_negatives
         self.genre_jaccard_threshold = genre_jaccard_threshold
         self.desc_sim_threshold = desc_sim_threshold
@@ -81,9 +77,7 @@ class ContrastiveBookDataset(Dataset):
             .to_dict()
         )
         self.all_indices = list(range(len(self.books_meta)))
-        self.genres_sets = [
-            parse_genre_str(g) for g in self.books_meta["genres_list"]
-        ]
+        self.genres_sets = [parse_genre_str(g) for g in self.books_meta["genres_list"]]
 
     def _get_unrelated_negative(self, idx: int) -> int:
         anchor_author = self.books_meta.loc[idx, "author_clean"]
@@ -98,11 +92,7 @@ class ContrastiveBookDataset(Dataset):
             if self.books_meta.loc[j, "author_clean"] == anchor_author:
                 continue
             j_series = self.books_meta.loc[j, "series_clean"]
-            if (
-                anchor_series.strip()
-                and j_series.strip()
-                and anchor_series == j_series
-            ):
+            if anchor_series.strip() and j_series.strip() and anchor_series == j_series:
                 continue
             j_genres = self.genres_sets[j]
             if jaccard(anchor_genres, j_genres) > self.genre_jaccard_threshold:
@@ -123,7 +113,16 @@ class ContrastiveBookDataset(Dataset):
     def __len__(self) -> int:
         return len(self.books_meta)
 
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    def __getitem__(
+        self, idx: int
+    ) -> Tuple[
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+    ]:
         anchor = self.embeddings[idx]
         author = self.books_meta.loc[idx, "author_clean"]
         series = self.books_meta.loc[idx, "series_clean"]
@@ -134,25 +133,20 @@ class ContrastiveBookDataset(Dataset):
             and series in self.series_to_indices
             and len(self.series_to_indices[series]) > 1
         ):
-            candidates = [
-                i for i in self.series_to_indices[series] if i != idx
-            ]
+            candidates = [i for i in self.series_to_indices[series] if i != idx]
             if candidates:
                 pos_series = self.rng.choice(candidates)
 
         pos_author = idx
-        if (
-            author in self.author_to_indices
-            and len(self.author_to_indices[author]) > 1
-        ):
-            candidates = [
-                i for i in self.author_to_indices[author] if i != idx
-            ]
+        if author in self.author_to_indices and len(self.author_to_indices[author]) > 1:
+            candidates = [i for i in self.author_to_indices[author] if i != idx]
             if candidates:
                 pos_author = self.rng.choice(candidates)
 
         genre_candidates = [
-            j for j in self.all_indices if j != idx and self.genres_sets[idx] & self.genres_sets[j]
+            j
+            for j in self.all_indices
+            if j != idx and self.genres_sets[idx] & self.genres_sets[j]
         ]
         pos_genre = self.rng.choice(genre_candidates) if genre_candidates else idx
 
@@ -192,9 +186,7 @@ def weighted_contrastive_loss(
 ) -> torch.Tensor:
     def triplet_loss(pos: torch.Tensor) -> torch.Tensor:
         pos_dist = 1 - F.cosine_similarity(anchor, pos, dim=-1)
-        neg_dists = 1 - F.cosine_similarity(
-            anchor.unsqueeze(1), negatives, dim=-1
-        )
+        neg_dists = 1 - F.cosine_similarity(anchor.unsqueeze(1), negatives, dim=-1)
         hardest_neg = neg_dists.min(dim=1)[0]
         return F.relu(pos_dist - hardest_neg + margin).mean()
 
@@ -234,29 +226,21 @@ def main(config_path: str) -> None:
     os.makedirs(config["paths"]["logs_dir"], exist_ok=True)
 
     logger.info("Загрузка данных...")
-    book_embeddings = np.load(
-        os.path.join(INPUT_DIR, "book_embeddings_multimodal.npy")
-    )
+    book_embeddings = np.load(os.path.join(INPUT_DIR, "book_embeddings_multimodal.npy"))
     books_meta = pd.read_csv(
         os.path.join(INPUT_DIR, "books_meta_multimodal.csv"),
         keep_default_na=False,
         na_values=[],
     )
-    desc_original = np.load(
-        os.path.join(INPUT_DIR, "book_descriptions_original.npy")
-    )
+    desc_original = np.load(os.path.join(INPUT_DIR, "book_descriptions_original.npy"))
 
     dataset = ContrastiveBookDataset(
         book_embeddings,
         books_meta,
         desc_original,
         num_negatives=config["training"]["num_negatives"],
-        genre_jaccard_threshold=config["training"][
-            "genre_jaccard_threshold"
-        ],
-        desc_sim_threshold=config["training"][
-            "description_sim_threshold"
-        ],
+        genre_jaccard_threshold=config["training"]["genre_jaccard_threshold"],
+        desc_sim_threshold=config["training"]["description_sim_threshold"],
         seed=data_seed,
     )
 
@@ -298,9 +282,7 @@ def main(config_path: str) -> None:
     )
 
     total_steps = len(dataloader) * config["training"]["epochs"]
-    warmup_steps = (
-        len(dataloader) * config["training"]["warmup_epochs"]
-    )
+    warmup_steps = len(dataloader) * config["training"]["warmup_epochs"]
     main_steps = total_steps - warmup_steps
 
     scheduler_warmup = LinearLR(
@@ -361,8 +343,6 @@ def main(config_path: str) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--config", type=str, default="configs/default.yaml"
-    )
+    parser.add_argument("--config", type=str, default="configs/default.yaml")
     args = parser.parse_args()
-    main(args.config)
+    main(args.config)  # test
