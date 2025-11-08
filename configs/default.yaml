@@ -1,0 +1,49 @@
+
+---
+
+## ⚙️ `configs/default.yaml`
+
+seed: 42
+
+paths:
+  dataset_dir: "data"
+  processed_data_dir: "processed_data"
+  logs_dir: "logs"
+  outputs_dir: "outputs"
+
+embeddings:
+  model_name: "all-MiniLM-L6-v2"
+
+training:
+  hidden_dim: 512
+  output_dim: 256
+  batch_size: 64
+  epochs: 8
+  lr: 1e-3
+  weight_decay: 1e-4
+  num_negatives: 3
+  genre_jaccard_threshold: 0.2
+  description_sim_threshold: 0.2
+  margin: 0.2
+  weights:
+    series: 1.0
+    author: 0.8
+    genre: 0.5
+    desc: 0.65
+  warmup_epochs: 2
+  start_factor: 0.05
+  end_factor: 1.0
+  eta_min: 1e-10
+
+compare_embeddings:
+  pairs_number: 5000
+  books_number: 10000
+
+evaluation:
+  history_part: 0.8
+  history_max_len: 20
+  max_users: 100
+  popularity_weights: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+
+recommend:
+  popularity_weight: 0.9

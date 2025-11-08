@@ -1,0 +1,11 @@
+{
+  "architectures": [
+    "BookEncoderModel"
+  ],
+  "dtype": "float32",
+  "hidden_dim": 512,
+  "input_dim": 2017,
+  "model_type": "book-encoder",
+  "output_dim": 256,
+  "transformers_version": "4.57.1"
+}
