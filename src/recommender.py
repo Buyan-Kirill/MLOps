@@ -35,9 +35,7 @@ class LightweightRecommender:
         }
 
         self.avg_rating_map = (
-            self.books_meta.set_index("bookId")["avg_rating"]
-            .fillna(3.0)
-            .to_dict()
+            self.books_meta.set_index("bookId")["avg_rating"].fillna(3.0).to_dict()
         )
 
     def predict_rating(
@@ -85,9 +83,8 @@ class LightweightRecommender:
         avg_rating = self.avg_rating_map.get(candidate_book_id, 3.0)
 
         final_rating = (
-            (1.0 - self.popularity_weight) * personalized
-            + self.popularity_weight * avg_rating
-        )
+            1.0 - self.popularity_weight
+        ) * personalized + self.popularity_weight * avg_rating
         return float(np.clip(final_rating, 1.0, 5.0))
 
     def recommend(
@@ -100,9 +97,7 @@ class LightweightRecommender:
             candidates = self.books_meta.copy()
             if exclude_book_ids:
                 exclude_set = {str(bid) for bid in exclude_book_ids}
-                candidates = candidates[
-                    ~candidates["bookId"].isin(exclude_set)
-                ]
+                candidates = candidates[~candidates["bookId"].isin(exclude_set)]
             top_k = candidates.nlargest(k, "avg_rating")
             return [
                 {
@@ -133,13 +128,9 @@ class LightweightRecommender:
         else:
             profile_emb /= total_weight
 
-        profile_tensor = torch.tensor(
-            profile_emb, dtype=torch.float32
-        ).unsqueeze(0)
+        profile_tensor = torch.tensor(profile_emb, dtype=torch.float32).unsqueeze(0)
         all_embs_tensor = torch.tensor(self.embeddings, dtype=torch.float32)
-        similarities = (
-            cos_sim(profile_tensor, all_embs_tensor).squeeze(0).numpy()
-        )
+        similarities = cos_sim(profile_tensor, all_embs_tensor).squeeze(0).numpy()
 
         exclude_set = {str(bid) for bid, _ in user_history}
         if exclude_book_ids:
@@ -163,6 +154,7 @@ class LightweightRecommender:
             book_id = self.idx_to_bookid[idx]
             row = self.books_meta.iloc[idx]
             pred_rating = self.predict_rating(user_history, book_id)
+            # pred_rating = 10.0
 
             result.append(
                 {
@@ -170,9 +162,7 @@ class LightweightRecommender:
                     "title": row.get("title", ""),
                     "author": row.get("author_clean", ""),
                     "predicted_rating": round(pred_rating, 2),
-                    "similarity_to_user_profile": round(
-                        float(similarities[idx]), 3
-                    ),
+                    "similarity_to_user_profile": round(float(similarities[idx]), 3),
                 }
             )
 
