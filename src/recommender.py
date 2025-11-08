@@ -154,7 +154,6 @@ class LightweightRecommender:
             book_id = self.idx_to_bookid[idx]
             row = self.books_meta.iloc[idx]
             pred_rating = self.predict_rating(user_history, book_id)
-            # pred_rating = 10.0
 
             result.append(
                 {
