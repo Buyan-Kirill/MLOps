@@ -14,6 +14,7 @@
 2) mkdir -p ~/.kaggle
 3) mv ~/Downloads/kaggle.json ~/.kaggle/
 4) chmod 600 ~/.kaggle/kaggle.json
+
 После этого всю дальнейшую работу можно будет делать через Makefile. Там есть команды для запуска полного цикла:
 1) создание виртуального окружения (make setup)
 2) загрузка (если не скачаны) и очистка данных (make prepare_data)
