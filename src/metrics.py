@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import numpy as np
 from scipy.stats import spearmanr
 from typing import Set, List, Union

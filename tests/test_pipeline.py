@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-"""
-Тесты для ML-пайплайна рекомендательной системы.
-Запуск: pytest tests/ -v
-"""
-
 import os
 import numpy as np
 import pandas as pd

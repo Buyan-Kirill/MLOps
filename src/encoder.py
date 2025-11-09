@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from transformers import PreTrainedModel, PretrainedConfig
 import torch
 import torch.nn as nn
