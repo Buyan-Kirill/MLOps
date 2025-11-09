@@ -9,7 +9,7 @@ import torch
 import sys
 from sentence_transformers.util import cos_sim
 from tqdm import tqdm
-from typing import Dict, Any, Optional, Tuple, List, Set
+from typing import Dict, Optional
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from src.utils import parse_genre_str
@@ -31,7 +31,7 @@ def compute_detailed_stats(
     books_meta: pd.DataFrame,
     desc_original: Optional[np.ndarray] = None,
     sample_pairs: int = 2000,
-    seed: int = 42
+    seed: int = 42,
 ) -> Dict[str, float]:
     rng = np.random.default_rng(seed)
     books_meta = books_meta.reset_index(drop=True)
@@ -50,32 +50,28 @@ def compute_detailed_stats(
         }
 
     author_intra = []
-    author_groups = list(
-        books_meta.groupby("author_clean", group_keys=False)
-    )
-    for author, group in tqdm(
-        author_groups, desc="Авторы (внутри)", leave=False
-    ):
+    author_groups = list(books_meta.groupby("author_clean", group_keys=False))
+    for author, group in tqdm(author_groups, desc="Авторы (внутри)", leave=False):
         if len(group) < 2:
             continue
         idxs = group.index.tolist()
         if len(idxs) > 20:
             idxs = rng.choice(idxs, 20, replace=False)
-        sim = cos_sim(
-            torch.tensor(embeddings[idxs], dtype=torch.float32),
-            torch.tensor(embeddings[idxs], dtype=torch.float32),
-        ).cpu().numpy()
+        sim = (
+            cos_sim(
+                torch.tensor(embeddings[idxs], dtype=torch.float32),
+                torch.tensor(embeddings[idxs], dtype=torch.float32),
+            )
+            .cpu()
+            .numpy()
+        )
         triu = np.triu_indices_from(sim, k=1)
         author_intra.extend(sim[triu])
-    avg_author_intra = (
-        np.mean(author_intra) if author_intra else float("nan")
-    )
+    avg_author_intra = np.mean(author_intra) if author_intra else float("nan")
 
     author_inter = []
     authors = books_meta["author_clean"].unique()
-    for _ in tqdm(
-        range(sample_pairs), desc="Авторы (между)", leave=False
-    ):
+    for _ in tqdm(range(sample_pairs), desc="Авторы (между)", leave=False):
         if len(authors) < 2:
             break
         a1, a2 = rng.choice(authors, 2, replace=False)
@@ -85,45 +81,41 @@ def compute_detailed_stats(
             continue
         i = rng.choice(g1.index)
         j = rng.choice(g2.index)
-        sim = cos_sim(
-            torch.tensor(embeddings[i:i + 1], dtype=torch.float32),
-            torch.tensor(embeddings[j:j + 1], dtype=torch.float32),
-        ).cpu().item()
+        sim = (
+            cos_sim(
+                torch.tensor(embeddings[i : i + 1], dtype=torch.float32),
+                torch.tensor(embeddings[j : j + 1], dtype=torch.float32),
+            )
+            .cpu()
+            .item()
+        )
         author_inter.append(sim)
-    avg_author_inter = (
-        np.mean(author_inter) if author_inter else float("nan")
-    )
+    avg_author_inter = np.mean(author_inter) if author_inter else float("nan")
 
     series_intra = []
-    series_books = books_meta[
-        books_meta["series_clean"].str.strip() != ""
-    ]
-    series_groups = list(
-        series_books.groupby("series_clean", group_keys=False)
-    )
-    for series, group in tqdm(
-        series_groups, desc="Серии (внутри)", leave=False
-    ):
+    series_books = books_meta[books_meta["series_clean"].str.strip() != ""]
+    series_groups = list(series_books.groupby("series_clean", group_keys=False))
+    for series, group in tqdm(series_groups, desc="Серии (внутри)", leave=False):
         if len(group) < 2:
             continue
         idxs = group.index.tolist()
         if len(idxs) > 10:
             idxs = rng.choice(idxs, 10, replace=False)
-        sim = cos_sim(
-            torch.tensor(embeddings[idxs], dtype=torch.float32),
-            torch.tensor(embeddings[idxs], dtype=torch.float32),
-        ).cpu().numpy()
+        sim = (
+            cos_sim(
+                torch.tensor(embeddings[idxs], dtype=torch.float32),
+                torch.tensor(embeddings[idxs], dtype=torch.float32),
+            )
+            .cpu()
+            .numpy()
+        )
         triu = np.triu_indices_from(sim, k=1)
         series_intra.extend(sim[triu])
-    avg_series_intra = (
-        np.mean(series_intra) if series_intra else float("nan")
-    )
+    avg_series_intra = np.mean(series_intra) if series_intra else float("nan")
 
     series_inter = []
     series_list = series_books["series_clean"].unique()
-    for _ in tqdm(
-        range(sample_pairs), desc="Серии (между)", leave=False
-    ):
+    for _ in tqdm(range(sample_pairs), desc="Серии (между)", leave=False):
         if len(series_list) < 2:
             break
         s1, s2 = rng.choice(series_list, 2, replace=False)
@@ -133,14 +125,16 @@ def compute_detailed_stats(
             continue
         i = rng.choice(g1.index)
         j = rng.choice(g2.index)
-        sim = cos_sim(
-            torch.tensor(embeddings[i:i + 1], dtype=torch.float32),
-            torch.tensor(embeddings[j:j + 1], dtype=torch.float32),
-        ).cpu().item()
+        sim = (
+            cos_sim(
+                torch.tensor(embeddings[i : i + 1], dtype=torch.float32),
+                torch.tensor(embeddings[j : j + 1], dtype=torch.float32),
+            )
+            .cpu()
+            .item()
+        )
         series_inter.append(sim)
-    avg_series_inter = (
-        np.mean(series_inter) if series_inter else float("nan")
-    )
+    avg_series_inter = np.mean(series_inter) if series_inter else float("nan")
 
     genre_orig, genre_emb = [], []
     for _ in tqdm(range(sample_pairs), desc="Жанры", leave=False):
@@ -148,10 +142,14 @@ def compute_detailed_stats(
         g1 = parse_genre_str(books_meta.iloc[i]["genres_list"])
         g2 = parse_genre_str(books_meta.iloc[j]["genres_list"])
         genre_orig.append(jaccard(g1, g2))
-        emb_sim = cos_sim(
-            torch.tensor(embeddings[i:i + 1], dtype=torch.float32),
-            torch.tensor(embeddings[j:j + 1], dtype=torch.float32),
-        ).cpu().item()
+        emb_sim = (
+            cos_sim(
+                torch.tensor(embeddings[i : i + 1], dtype=torch.float32),
+                torch.tensor(embeddings[j : j + 1], dtype=torch.float32),
+            )
+            .cpu()
+            .item()
+        )
         genre_emb.append(emb_sim)
     corr_genre = float("nan")
     if len(genre_emb) > 5:
@@ -168,14 +166,22 @@ def compute_detailed_stats(
             or not books_meta.iloc[j]["description_clean"]
         ):
             continue
-        orig_sim = cos_sim(
-            torch.tensor(desc_original[i:i + 1], dtype=torch.float32),
-            torch.tensor(desc_original[j:j + 1], dtype=torch.float32),
-        ).cpu().item()
-        emb_sim = cos_sim(
-            torch.tensor(embeddings[i:i + 1], dtype=torch.float32),
-            torch.tensor(embeddings[j:j + 1], dtype=torch.float32),
-        ).cpu().item()
+        orig_sim = (
+            cos_sim(
+                torch.tensor(desc_original[i : i + 1], dtype=torch.float32),
+                torch.tensor(desc_original[j : j + 1], dtype=torch.float32),
+            )
+            .cpu()
+            .item()
+        )
+        emb_sim = (
+            cos_sim(
+                torch.tensor(embeddings[i : i + 1], dtype=torch.float32),
+                torch.tensor(embeddings[j : j + 1], dtype=torch.float32),
+            )
+            .cpu()
+            .item()
+        )
         desc_orig_sims.append(orig_sim)
         desc_emb_sims.append(emb_sim)
     corr_desc = float("nan")
@@ -217,19 +223,16 @@ def main(config_path: str) -> None:
     embeddings_contrastive_path = os.path.join(
         OUTPUT_DIR,
         f"book_encoder_contrastive_{OUTPUT_DIM}",
-        f"book_embeddings_contrastive_{OUTPUT_DIM}.npy"
+        f"book_embeddings_contrastive_{OUTPUT_DIM}.npy",
     )
     if not os.path.exists(embeddings_contrastive_path):
         logger.error(
-            "Контрастивные эмбеддинги не найдены: %s",
-            embeddings_contrastive_path
+            "Контрастивные эмбеддинги не найдены: %s", embeddings_contrastive_path
         )
         logger.error("Сначала выполните: make train")
         return
     embeddings_contrastive = np.load(embeddings_contrastive_path)
-    desc_original = np.load(
-        os.path.join(INPUT_DIR, "book_descriptions_original.npy")
-    )
+    desc_original = np.load(os.path.join(INPUT_DIR, "book_descriptions_original.npy"))
 
     min_len = min(
         len(books_meta),
@@ -274,11 +277,7 @@ def main(config_path: str) -> None:
 
     def delta(o, c):
         d = c - o
-        return (
-            f"{d:+.4f}"
-            if not (np.isnan(o) or np.isnan(c))
-            else "  nan"
-        )
+        return f"{d:+.4f}" if not (np.isnan(o) or np.isnan(c)) else "  nan"
 
     logger.info(
         f"{'Автор (внутри)':<25} "
@@ -322,8 +321,6 @@ def main(config_path: str) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--config", type=str, default="configs/default.yaml"
-    )
+    parser.add_argument("--config", type=str, default="configs/default.yaml")
     args = parser.parse_args()
     main(args.config)

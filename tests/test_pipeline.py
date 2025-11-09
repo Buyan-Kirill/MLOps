@@ -3,17 +3,12 @@
 Тесты для ML-пайплайна рекомендательной системы.
 Запуск: pytest tests/ -v
 """
+
 import os
-import sys
 import numpy as np
 import pandas as pd
 import torch
 import yaml
-
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "scripts"))
-
-import pytest  # noqa: F401,E402
 from src.utils import parse_genre_str
 from scripts.train import ContrastiveBookDataset, weighted_contrastive_loss
 from src.encoder import BookEncoderModel, BookEncoderConfig
@@ -70,12 +65,10 @@ def test_ratings_exist_and_required_columns():
     required_cols = {"user_id", "title", "rating", "bookId"}
     missing = required_cols - set(ratings.columns)
     assert not missing, f"Отсутствуют колонки: {missing}"
-    
+
     assert ratings["bookId"].dtype == "object", "bookId должен быть строкой"
     assert ratings["title"].dtype == "object", "title должен быть строкой"
-    assert pd.api.types.is_integer_dtype(
-        ratings["rating"]
-    ), "rating должен быть int"
+    assert pd.api.types.is_integer_dtype(ratings["rating"]), "rating должен быть int"
     assert ratings["rating"].between(1, 5).all(), "rating вне [1,5]"
 
 
@@ -90,12 +83,8 @@ def test_books_meta_multimodal_valid():
     assert not (meta["bookId"] == "").any(), "bookId содержит пустые строки"
     assert not meta["title"].isna().any(), "title содержит NaN"
 
-    assert (
-        meta["series_clean"].dtype == "object"
-    ), "series_clean не object"
-    assert (
-        meta["author_clean"].dtype == "object"
-    ), "author_clean не object"
+    assert meta["series_clean"].dtype == "object", "series_clean не object"
+    assert meta["author_clean"].dtype == "object", "author_clean не object"
     assert all(
         isinstance(x, str) for x in meta["series_clean"]
     ), "series_clean содержит не-строки"
@@ -106,9 +95,7 @@ def test_books_meta_multimodal_valid():
     for g in meta["genres_list"]:
         assert isinstance(g, str), f"genres_list не строка: {type(g)} — {g}"
         genres = parse_genre_str(g)
-        assert isinstance(
-            genres, set
-        ), f"parse_genre_str вернул не set: {type(genres)}"
+        assert isinstance(genres, set), f"parse_genre_str вернул не set: {type(genres)}"
 
 
 def test_book_embeddings_multimodal_valid():
@@ -138,17 +125,13 @@ def test_book_embeddings_multimodal_valid():
 
 def test_contrastive_dataset_getitem():
     INPUT_DIR = get_processed_data_dir()
-    book_embeddings = np.load(
-        os.path.join(INPUT_DIR, "book_embeddings_multimodal.npy")
-    )
+    book_embeddings = np.load(os.path.join(INPUT_DIR, "book_embeddings_multimodal.npy"))
     books_meta = pd.read_csv(
         os.path.join(INPUT_DIR, "books_meta_multimodal.csv"),
         keep_default_na=False,
         na_values=[],
     )
-    desc_original = np.load(
-        os.path.join(INPUT_DIR, "book_descriptions_original.npy")
-    )
+    desc_original = np.load(os.path.join(INPUT_DIR, "book_descriptions_original.npy"))
 
     dataset = ContrastiveBookDataset(
         book_embeddings,
@@ -167,12 +150,8 @@ def test_contrastive_dataset_getitem():
         assert t.dtype == torch.float32, f"Элемент {i} не float32: {t.dtype}"
 
     emb_dim = book_embeddings.shape[1]
-    assert anchor.shape == (
-        emb_dim,
-    ), f"anchor shape: {anchor.shape}"
-    assert pos_s.shape == (
-        emb_dim,
-    ), f"pos_s shape: {pos_s.shape}"
+    assert anchor.shape == (emb_dim,), f"anchor shape: {anchor.shape}"
+    assert pos_s.shape == (emb_dim,), f"pos_s shape: {pos_s.shape}"
     assert negatives.shape == (
         2,
         emb_dim,
@@ -214,9 +193,7 @@ def test_weighted_contrastive_loss_computes():
 
 def test_model_encodes_embeddings():
     INPUT_DIR = get_processed_data_dir()
-    book_embeddings = np.load(
-        os.path.join(INPUT_DIR, "book_embeddings_multimodal.npy")
-    )
+    book_embeddings = np.load(os.path.join(INPUT_DIR, "book_embeddings_multimodal.npy"))
 
     config = BookEncoderConfig(
         input_dim=book_embeddings.shape[1],
@@ -242,9 +219,7 @@ def test_recommendation():
         keep_default_na=False,
         na_values=[],
     )
-    embeddings = np.load(
-        os.path.join(INPUT_DIR, "book_embeddings_multimodal.npy")
-    )
+    embeddings = np.load(os.path.join(INPUT_DIR, "book_embeddings_multimodal.npy"))
 
     user_book_ids = books_meta.head(10)["bookId"].tolist()
     user_ratings = [5] * 10
@@ -268,14 +243,10 @@ def test_recommendation():
     ), f"Ожидалось 5 рекомендаций, получено {len(recommendations)}"
 
     for i, rec in enumerate(recommendations):
-        assert isinstance(
-            rec, dict
-        ), f"Рекомендация #{i} не словарь"
+        assert isinstance(rec, dict), f"Рекомендация #{i} не словарь"
         assert "bookId" in rec, f"Нет bookId в #{i}"
         assert "title" in rec, f"Нет title в #{i}"
-        assert (
-            "predicted_rating" in rec
-        ), f"Нет predicted_rating в #{i}"
+        assert "predicted_rating" in rec, f"Нет predicted_rating в #{i}"
 
         assert (
             1.0 <= rec["predicted_rating"] <= 5.0

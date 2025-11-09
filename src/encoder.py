@@ -9,7 +9,11 @@ class BookEncoderConfig(PretrainedConfig):
     model_type = "book-encoder"
 
     def __init__(
-        self, input_dim: int = 1200, hidden_dim: int = 512, output_dim: int = 256, **kwargs: Any
+        self,
+        input_dim: int = 1200,
+        hidden_dim: int = 512,
+        output_dim: int = 256,
+        **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
         self.input_dim = input_dim

@@ -28,9 +28,7 @@ def download_kaggle_dataset(dataset_slug: str, target_dir: str) -> None:
     os.makedirs(target_dir, exist_ok=True)
     csv_files = [f for f in os.listdir(target_dir) if f.endswith(".csv")]
     if csv_files:
-        logger.info(
-            f"Датасет {dataset_slug} уже загружен: {csv_files[0]}"
-        )
+        logger.info(f"Датасет {dataset_slug} уже загружен: {csv_files[0]}")
         return
 
     logger.info(f"Загрузка '{dataset_slug}' в {target_dir}...")
@@ -49,24 +47,18 @@ def download_kaggle_dataset(dataset_slug: str, target_dir: str) -> None:
             text=True,
             check=True,
         )
-        zip_files = [
-            f for f in os.listdir(target_dir) if f.endswith(".zip")
-        ]
+        zip_files = [f for f in os.listdir(target_dir) if f.endswith(".zip")]
         if not zip_files:
             raise FileNotFoundError("Нет .zip после загрузки")
         zip_path = os.path.join(target_dir, zip_files[0])
         with zipfile.ZipFile(zip_path, "r") as zf:
             zf.extractall(target_dir)
         os.remove(zip_path)
-        extracted_csv = [
-            f for f in os.listdir(target_dir) if f.endswith(".csv")
-        ]
+        extracted_csv = [f for f in os.listdir(target_dir) if f.endswith(".csv")]
         logger.info(f"Распаковано: {extracted_csv}")
     except Exception as e:
         logger.error(f"Kaggle: {e}")
-        logger.error(
-            "Проверьте: 1) kaggle.json, 2) соглашение на Kaggle"
-        )
+        logger.error("Проверьте: 1) kaggle.json, 2) соглашение на Kaggle")
         raise SystemExit(1)
 
 
@@ -83,10 +75,7 @@ def validate_books_df(df: pd.DataFrame, name: str = "books") -> pd.DataFrame:
     df["bookId"] = df["bookId"].astype(str).apply(safe_str)
     df["title"] = df["title"].astype(str).apply(safe_str)
     df["author"] = (
-        df.get("author", "Unknown")
-        .fillna("Unknown")
-        .astype(str)
-        .apply(safe_str)
+        df.get("author", "Unknown").fillna("Unknown").astype(str).apply(safe_str)
     )
     df["description"] = (
         df.get("description", "").fillna("").astype(str).apply(clean_html)
@@ -99,15 +88,11 @@ def validate_books_df(df: pd.DataFrame, name: str = "books") -> pd.DataFrame:
     df = df[df["title"].str.strip() != ""]
     removed = before - len(df)
     if removed > 0:
-        logger.info(
-            f"   Удалено {removed} строк с пустыми bookId/title"
-        )
+        logger.info(f"   Удалено {removed} строк с пустыми bookId/title")
 
     dup_bookid = df[df.duplicated(subset=["bookId"])]
     if len(dup_bookid) > 0:
-        logger.warning(
-            f"   Удалено {len(dup_bookid)} дубликатов по bookId"
-        )
+        logger.warning(f"   Удалено {len(dup_bookid)} дубликатов по bookId")
         df = df.drop_duplicates(subset=["bookId"]).copy()
 
     for col in ["rating", "pages", "likedPercent"]:
@@ -122,24 +107,17 @@ def validate_books_df(df: pd.DataFrame, name: str = "books") -> pd.DataFrame:
                     f"медианой ({median_val:.2f})"
                 )
         else:
-            df[col] = (
-                df["rating"].median() if col == "rating" else 0.0
-            )
+            df[col] = df["rating"].median() if col == "rating" else 0.0
 
+    logger.info(f"{name}: {len(df)} книг, {df['bookId'].nunique()} уникальных ID")
     logger.info(
-        f"{name}: {len(df)} книг, {df['bookId'].nunique()} уникальных ID"
-    )
-    logger.info(
-        f"   Средний рейтинг книг: {df['rating'].mean():.2f} "
-        f"± {df['rating'].std():.2f}"
+        f"   Средний рейтинг книг: {df['rating'].mean():.2f} ± {df['rating'].std():.2f}"
     )
 
     return df.reset_index(drop=True)
 
 
-def validate_ratings_df(
-    df: pd.DataFrame, name: str = "ratings"
-) -> pd.DataFrame:
+def validate_ratings_df(df: pd.DataFrame, name: str = "ratings") -> pd.DataFrame:
     """Проверяет и чистит рейтинги."""
     logger.info(f"Валидация {name}. До очистки: {len(df)} строк")
 
@@ -174,9 +152,7 @@ def validate_ratings_df(
     df["rating"] = df["rating_text"].map(rating_map)
     invalid = df["rating"].isna().sum()
     if invalid > 0:
-        logger.warning(
-            f"   Удалено {invalid} строк с некорректным рейтингом"
-        )
+        logger.warning(f"   Удалено {invalid} строк с некорректным рейтингом")
         df = df.dropna(subset=["rating"])
 
     df["rating"] = df["rating"].astype(int)
@@ -186,9 +162,7 @@ def validate_ratings_df(
 
     out_of_range = ((df["rating"] < 1) | (df["rating"] > 5)).sum()
     if out_of_range > 0:
-        logger.warning(
-            f"   Удалено {out_of_range} рейтингов вне [1,5]"
-        )
+        logger.warning(f"   Удалено {out_of_range} рейтингов вне [1,5]")
         df = df[(df["rating"] >= 1) & (df["rating"] <= 5)]
 
     logger.info(f"   После очистки: {len(df)} строк")
@@ -206,16 +180,10 @@ def main(config_path: str, limit_ratings: Optional[int] = None) -> None:
     set_seed(config["seed"])
 
     logger.info("Проверка датасетов...")
-    BEST_DATASET = (
-        "thedevastator/comprehensive-overview-of-52478-goodreads-best-b"
-    )
+    BEST_DATASET = "thedevastator/comprehensive-overview-of-52478-goodreads-best-b"
     RATING_DATASET = "bahramjannesarr/goodreads-book-datasets-10m"
-    BEST_DIR = os.path.join(
-        config["paths"]["dataset_dir"], "best_books_dataset"
-    )
-    RATING_DIR = os.path.join(
-        config["paths"]["dataset_dir"], "all_books_dataset"
-    )
+    BEST_DIR = os.path.join(config["paths"]["dataset_dir"], "best_books_dataset")
+    RATING_DIR = os.path.join(config["paths"]["dataset_dir"], "all_books_dataset")
 
     os.makedirs(config["paths"]["dataset_dir"], exist_ok=True)
     os.makedirs(BEST_DIR, exist_ok=True)
@@ -223,29 +191,21 @@ def main(config_path: str, limit_ratings: Optional[int] = None) -> None:
 
     if not glob.glob(os.path.join(BEST_DIR, "*.csv")):
         download_kaggle_dataset(BEST_DATASET, BEST_DIR)
-    if not any(
-        f.startswith("user_rating") for f in os.listdir(RATING_DIR)
-    ):
+    if not any(f.startswith("user_rating") for f in os.listdir(RATING_DIR)):
         download_kaggle_dataset(RATING_DATASET, RATING_DIR)
 
     best_csv = glob.glob(os.path.join(BEST_DIR, "*.csv"))[0]
     logger.info(f"Чтение {best_csv}...")
-    books_raw = pd.read_csv(
-        best_csv, on_bad_lines="skip", low_memory=False
-    )
+    books_raw = pd.read_csv(best_csv, on_bad_lines="skip", low_memory=False)
     books_clean = validate_books_df(books_raw, "best_books")
 
     books_clean["norm_title"] = books_clean["title"].apply(normalize_title)
-    books_clean["norm_author"] = books_clean["author"].apply(
-        normalize_title
-    )
+    books_clean["norm_author"] = books_clean["author"].apply(normalize_title)
     books_clean = books_clean.drop_duplicates(
         subset=["norm_title", "norm_author"]
     ).copy()
     books_clean = books_clean.rename(columns={"rating": "avg_rating"})
-    logger.info(
-        f"Уникальных книг (по title+author): {len(books_clean)}"
-    )
+    logger.info(f"Уникальных книг (по title+author): {len(books_clean)}")
 
     rating_files = [
         f
@@ -277,50 +237,36 @@ def main(config_path: str, limit_ratings: Optional[int] = None) -> None:
         title_to_meta, on="norm_title", how="inner", rsuffix="_book"
     )
     if "rating_book" in ratings_enriched.columns:
-        ratings_enriched = ratings_enriched.drop(
-            columns=["rating_book"]
-        )
+        ratings_enriched = ratings_enriched.drop(columns=["rating_book"])
 
-    logger.info(
-        f"Сопоставлено {len(ratings_enriched)} рейтингов с книгами."
-    )
+    logger.info(f"Сопоставлено {len(ratings_enriched)} рейтингов с книгами.")
 
     if ratings_enriched.empty:
-        sample_titles = ratings_clean["norm_title"].sample(
-            min(10, len(ratings_clean))
-        ).tolist()
+        sample_titles = (
+            ratings_clean["norm_title"].sample(min(10, len(ratings_clean))).tolist()
+        )
         book_titles = set(books_clean["norm_title"])
         unmatched = [t for t in sample_titles if t not in book_titles]
-        logger.warning(
-            f"Несопоставленные названия (примеры): {unmatched}"
-        )
-        raise ValueError(
-            "Ни один рейтинг не сопоставился! Проверьте нормализацию."
-        )
+        logger.warning(f"Несопоставленные названия (примеры): {unmatched}")
+        raise ValueError("Ни один рейтинг не сопоставился! Проверьте нормализацию.")
 
     ratings_enriched = ratings_enriched[
         ratings_enriched["bookId"].notna() & (ratings_enriched["bookId"] != "")
     ]
     book_ids_in_ratings = ratings_enriched["bookId"].unique()
-    books_final = books_clean[
-        books_clean["bookId"].isin(book_ids_in_ratings)
-    ].copy()
+    books_final = books_clean[books_clean["bookId"].isin(book_ids_in_ratings)].copy()
 
     assert len(books_final) > 0, "Нет книг после фильтрации"
     assert len(ratings_enriched) > 0, "Нет рейтингов после фильтрации"
     assert "bookId" in books_final.columns, "Нет bookId"
     assert "avg_rating" in books_final.columns, "Нет avg_rating"
-    assert ratings_enriched["bookId"].notna().all(), (
-        "Есть NaN в bookId рейтингов"
-    )
+    assert ratings_enriched["bookId"].notna().all(), "Есть NaN в bookId рейтингов"
 
     OUTPUT_DIR = config["paths"]["processed_data_dir"]
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     os.makedirs(config["paths"]["logs_dir"], exist_ok=True)
 
-    books_final.to_parquet(
-        os.path.join(OUTPUT_DIR, "books_clean.parquet"), index=False
-    )
+    books_final.to_parquet(os.path.join(OUTPUT_DIR, "books_clean.parquet"), index=False)
     ratings_enriched.to_parquet(
         os.path.join(OUTPUT_DIR, "ratings_clean.parquet"), index=False
     )
@@ -334,9 +280,7 @@ def main(config_path: str, limit_ratings: Optional[int] = None) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--config", type=str, default="configs/default.yaml"
-    )
+    parser.add_argument("--config", type=str, default="configs/default.yaml")
     parser.add_argument("--limit-ratings", type=int, default=None)
     args = parser.parse_args()
     main(args.config, args.limit_ratings)

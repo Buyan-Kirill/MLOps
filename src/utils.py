@@ -23,18 +23,14 @@ logger = logging.getLogger(__name__)
 
 def clean_html(text: Any) -> str:
     if not isinstance(text, str):
-        logger.warning(
-            f"clean_html: не строка ({type(text)}) — возвращаем ''"
-        )
+        logger.warning(f"clean_html: не строка ({type(text)}) — возвращаем ''")
         return ""
     return re.sub(r"<.*?>", "", text).strip()
 
 
 def normalize_title(title: Any) -> str:
     if not isinstance(title, str):
-        logger.warning(
-            f"normalize_title: не строка ({type(title)}) — возвращаем ''"
-        )
+        logger.warning(f"normalize_title: не строка ({type(title)}) — возвращаем ''")
         return ""
     title = re.sub(r"\([^)]*\)", "", title)
     title = re.sub(r"[^\w\s]", " ", title)
@@ -61,11 +57,7 @@ def parse_genres(genres_str: Union[str, Any]) -> List[str]:
     try:
         genres_list = ast.literal_eval(genres_str)
         if isinstance(genres_list, list):
-            return [
-                g.strip().lower()
-                for g in genres_list
-                if isinstance(g, str)
-            ]
+            return [g.strip().lower() for g in genres_list if isinstance(g, str)]
     except (ValueError, SyntaxError):
         pass
     return []

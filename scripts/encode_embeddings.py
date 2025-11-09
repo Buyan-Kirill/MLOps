@@ -4,11 +4,9 @@ import argparse
 import logging
 import yaml
 import numpy as np
-import pandas as pd
 import torch
 from tqdm import tqdm
 import sys
-from typing import Any
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
@@ -34,9 +32,7 @@ def main(config_path: str) -> None:
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     logger.info("Загрузка данных...")
-    book_embeddings = np.load(
-        os.path.join(INPUT_DIR, "book_embeddings_multimodal.npy")
-    )
+    book_embeddings = np.load(os.path.join(INPUT_DIR, "book_embeddings_multimodal.npy"))
 
     encoder_path = os.path.join(
         OUTPUT_DIR,
@@ -69,8 +65,7 @@ def main(config_path: str) -> None:
 
     output_path = os.path.join(
         encoder_path,
-        f"book_embeddings_contrastive_"
-        f"{config['training']['output_dim']}.npy",
+        f"book_embeddings_contrastive_{config['training']['output_dim']}.npy",
     )
     np.save(output_path, all_embs)
     logger.info(f"Эмбеддинги сохранены: {output_path}")
@@ -78,8 +73,6 @@ def main(config_path: str) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--config", type=str, default="configs/default.yaml"
-    )
+    parser.add_argument("--config", type=str, default="configs/default.yaml")
     args = parser.parse_args()
     main(args.config)

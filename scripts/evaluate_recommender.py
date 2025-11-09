@@ -9,6 +9,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import sys
 from tqdm import tqdm
+
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from src.metrics import spearman_rank_correlation
 from src.utils import set_seed
@@ -32,7 +33,7 @@ def evaluate_user(
     recommender: LightweightRecommender,
     books_meta: pd.DataFrame,
     history_part: float,
-    max_history: int
+    max_history: int,
 ) -> tuple[float | None, float | None]:
     if len(group) < 3:
         return None, None
@@ -64,7 +65,7 @@ def main(config_path: str) -> None:
 
     PROCESSED_DIR = config["paths"]["processed_data_dir"]
     OUTPUT_DIR = config["paths"]["outputs_dir"]
-    OUTPUT_DIM = config['training']['output_dim']
+    OUTPUT_DIM = config["training"]["output_dim"]
     os.makedirs(config["paths"]["logs_dir"], exist_ok=True)
 
     logger.info("Загрузка данных...")
@@ -75,13 +76,9 @@ def main(config_path: str) -> None:
             f"book_embeddings_contrastive_{OUTPUT_DIM}.npy",
         )
     )
-    books_meta = pd.read_csv(
-        os.path.join(PROCESSED_DIR, "books_meta_multimodal.csv")
-    )
+    books_meta = pd.read_csv(os.path.join(PROCESSED_DIR, "books_meta_multimodal.csv"))
     ratings = pd.read_parquet(
-        os.path.join(
-            config["paths"]["processed_data_dir"], "ratings_clean.parquet"
-        )
+        os.path.join(config["paths"]["processed_data_dir"], "ratings_clean.parquet")
     )
 
     valid_books = set(books_meta["bookId"])
@@ -102,9 +99,7 @@ def main(config_path: str) -> None:
     for user_id, group in tqdm(user_groups, desc="Пользователи"):
         corr_model_pop, corr_pop = evaluate_user(
             group,
-            LightweightRecommender(
-                embeddings, books_meta, popularity_weight=1.0
-            ),
+            LightweightRecommender(embeddings, books_meta, popularity_weight=1.0),
             books_meta,
             history_part,
             max_history,
@@ -122,9 +117,7 @@ def main(config_path: str) -> None:
             if corr_model is not None and not np.isnan(corr_model):
                 results[w].append(corr_model)
 
-    avg_model = {
-        w: np.mean(results[w]) if results[w] else np.nan for w in weights
-    }
+    avg_model = {w: np.mean(results[w]) if results[w] else np.nan for w in weights}
     avg_pop = np.mean(pop_results) if pop_results else np.nan
 
     logger.info("\n" + "=" * 50)
@@ -140,8 +133,7 @@ def main(config_path: str) -> None:
         key=lambda w: avg_model[w] if not np.isnan(avg_model[w]) else -1,
     )
     logger.info(
-        f"\nОптимальный вес: {best_weight} "
-        f"(корреляция: {avg_model[best_weight]:.4f})"
+        f"\nОптимальный вес: {best_weight} (корреляция: {avg_model[best_weight]:.4f})"
     )
 
     plt.figure(figsize=(8, 5))
@@ -168,8 +160,6 @@ def main(config_path: str) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--config", type=str, default="configs/default.yaml"
-    )
+    parser.add_argument("--config", type=str, default="configs/default.yaml")
     args = parser.parse_args()
     main(args.config)
