@@ -20,6 +20,7 @@ setup: venv
 	@echo "Установка зависимостей..."
 	@$(PIP) install -r requirements.txt
 	@echo "Зависимости установлены."
+	@mkdir -p logs
 
 lint:
 	@$(PIP) install flake8 > /dev/null 2>&1 || true
@@ -65,7 +66,7 @@ clean:
 	find . -name "*.pyc" -delete
 	find . -name "__pycache__" -type d -exec rm -rf {} +
 
-clean-all: clean
+clean_all: clean
 	rm -rf $(VENV_DIR)
 
 help:
@@ -83,6 +84,6 @@ help:
 	@echo "  make all                   — полный пайплайн"
 	@echo "  make test_pipeline         — запустить тесты пайплайна"
 	@echo "  make clean                 — очистить артефакты (не venv)"
-	@echo "  make clean-all             — полная очистка (включая venv)"
+	@echo "  make clean_all             — полная очистка (включая venv)"
 	@echo
-	@echo "💡 Первый запуск: make setup"
+	@echo "💡 Первый запуск: make setup или make all"
