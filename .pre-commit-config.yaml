@@ -17,9 +17,23 @@ repos:
   - repo: local
     hooks:
       - id: pytest
-        name: pytest
+        name: Run tests
         entry: python -m pytest
-        language: system
-        pass_filenames: false
+        language: python
         always_run: true
-        args: ["-x", "tests/", "--tb=short"]
+        pass_filenames: false
+        additional_dependencies:
+          - pandas>=2.2.0
+          - numpy>=1.21.0
+          - torch>=2.0.0
+          - sentence-transformers>=2.2.0
+          - scikit-learn>=1.2.0
+          - matplotlib>=3.6.0
+          - PyYAML>=6.0
+          - tqdm>=4.64.0
+          - transformers>=4.30.0
+          - pytest>=7.0.0
+          - scipy>=1.9.0
+          - flake8>=6.0.0
+          - kaggle>=1.5.12
+          - pyarrow>=12.0.0
