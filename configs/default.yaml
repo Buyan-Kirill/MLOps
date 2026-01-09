@@ -12,23 +12,23 @@ embeddings:
 training:
   hidden_dim: 512
   output_dim: 256
-  batch_size: 64
-  epochs: 8
+  batch_size: 128
+  epochs: 4
   lr: 1e-3
-  weight_decay: 1e-4
-  num_negatives: 3
-  genre_jaccard_threshold: 0.2
-  description_sim_threshold: 0.2
-  margin: 0.2
+  weight_decay: 2e-4
+  num_negatives: 5
+  genre_jaccard_threshold: 0.15
+  description_sim_threshold: 0.15
+  margin: 0.3
   weights:
     series: 1.0
     author: 0.8
     genre: 0.5
     desc: 0.65
-  warmup_epochs: 2
+  warmup_epochs: 1
   start_factor: 0.05
   end_factor: 1.0
-  eta_min: 1e-10
+  eta_min: 1e-5
 
 compare_embeddings:
   pairs_number: 5000

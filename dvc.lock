@@ -1,0 +1,196 @@
+schema: '2.0'
+stages:
+  prepare:
+    cmd: venv/bin/python3 scripts/prepare_data.py --config configs/default.yaml
+      && venv/bin/python3 scripts/embed.py --config configs/default.yaml
+    deps:
+    - path: data/all_books_dataset
+      hash: md5
+      md5: 2f966e4b7ad3e445557d60014b3eda06.dir
+      size: 1183315898
+      nfiles: 30
+    - path: data/best_books_dataset
+      hash: md5
+      md5: c16316b2566639af0555a3496733c5e4.dir
+      size: 73839808
+      nfiles: 1
+    - path: scripts/embed.py
+      hash: md5
+      md5: 3ef2c86eb7eead4d1eb9e87e74d86151
+      size: 3590
+      isexec: true
+    - path: scripts/prepare_data.py
+      hash: md5
+      md5: 7bf5611bd2edbb16f3e3ac4836e48e0e
+      size: 11362
+      isexec: true
+    - path: src
+      hash: md5
+      md5: f0bb96f1bddbfaf422e6da8195635ec0.dir
+      size: 19551
+      nfiles: 8
+    params:
+      configs/default.yaml:
+        embeddings:
+          model_name: all-MiniLM-L6-v2
+        paths:
+          dataset_dir: data
+          processed_data_dir: processed_data
+          logs_dir: logs
+          outputs_dir: outputs
+        seed: 42
+    outs:
+    - path: processed_data/book_descriptions_original.npy
+      hash: md5
+      md5: b7672db5ccc75b81c8cf8f3a56474930
+      size: 32583296
+      isexec: true
+    - path: processed_data/book_embeddings_multimodal.npy
+      hash: md5
+      md5: b157645371ab532c61aac01f3fc94d08
+      size: 342293096
+      isexec: true
+    - path: processed_data/books_clean.parquet
+      hash: md5
+      md5: f5afe347e0e03ba9a4c7a8804dd5b20a
+      size: 18019138
+      isexec: true
+    - path: processed_data/books_meta_multimodal.csv
+      hash: md5
+      md5: 85c8d6992618712414c8247bf2431754
+      size: 22967518
+      isexec: true
+    - path: processed_data/ratings_clean.parquet
+      hash: md5
+      md5: 3517c02c151aca3109d72ae074e9edc2
+      size: 85241746
+      isexec: true
+  train:
+    cmd: venv/bin/python3 scripts/train.py --config configs/default.yaml
+    deps:
+    - path: processed_data/book_descriptions_original.npy
+      hash: md5
+      md5: b7672db5ccc75b81c8cf8f3a56474930
+      size: 32583296
+      isexec: true
+    - path: processed_data/book_embeddings_multimodal.npy
+      hash: md5
+      md5: b157645371ab532c61aac01f3fc94d08
+      size: 342293096
+      isexec: true
+    - path: processed_data/books_meta_multimodal.csv
+      hash: md5
+      md5: 85c8d6992618712414c8247bf2431754
+      size: 22967518
+      isexec: true
+    - path: scripts/train.py
+      hash: md5
+      md5: 7b373c39fd6a22db0c81b74764a0a332
+      size: 14473
+      isexec: true
+    - path: src
+      hash: md5
+      md5: f0bb96f1bddbfaf422e6da8195635ec0.dir
+      size: 19551
+      nfiles: 8
+    params:
+      configs/default.yaml:
+        seed: 42
+        training:
+          hidden_dim: 512
+          output_dim: 256
+          batch_size: 128
+          epochs: 4
+          lr: 0.001
+          weight_decay: 0.0002
+          num_negatives: 5
+          genre_jaccard_threshold: 0.15
+          description_sim_threshold: 0.15
+          margin: 0.3
+          weights:
+            series: 1.0
+            author: 0.8
+            genre: 0.5
+            desc: 0.65
+          warmup_epochs: 1
+          start_factor: 0.05
+          end_factor: 1.0
+          eta_min: 1e-05
+    outs:
+    - path: outputs/book_encoder_contrastive_256/config.json
+      hash: md5
+      md5: f9e19322e66dbe847c2d471a9ece822d
+      size: 205
+      isexec: true
+    - path: outputs/book_encoder_contrastive_256/model.safetensors
+      hash: md5
+      md5: 02589342371495d0f40a855e2ad2eccc
+      size: 4662776
+      isexec: true
+  evaluate:
+    cmd: venv/bin/python3 scripts/encode_embeddings.py --config
+      configs/default.yaml && venv/bin/python3 scripts/evaluate_recommender.py
+      --config configs/default.yaml
+    deps:
+    - path: outputs/book_encoder_contrastive_256/model.safetensors
+      hash: md5
+      md5: 02589342371495d0f40a855e2ad2eccc
+      size: 4662776
+      isexec: true
+    - path: processed_data/books_clean.parquet
+      hash: md5
+      md5: f5afe347e0e03ba9a4c7a8804dd5b20a
+      size: 18019138
+      isexec: true
+    - path: processed_data/ratings_clean.parquet
+      hash: md5
+      md5: 3517c02c151aca3109d72ae074e9edc2
+      size: 85241746
+      isexec: true
+    - path: scripts/encode_embeddings.py
+      hash: md5
+      md5: aade88f805323aea881126dd9f03552f
+      size: 2476
+      isexec: true
+    - path: scripts/evaluate_recommender.py
+      hash: md5
+      md5: af570d7c730188e23ba3ae6e489c6571
+      size: 5511
+      isexec: true
+    - path: src
+      hash: md5
+      md5: f0bb96f1bddbfaf422e6da8195635ec0.dir
+      size: 19551
+      nfiles: 8
+    params:
+      configs/default.yaml:
+        evaluation:
+          history_part: 0.8
+          history_max_len: 20
+          max_users: 100
+          popularity_weights:
+          - 0.0
+          - 0.1
+          - 0.2
+          - 0.3
+          - 0.4
+          - 0.5
+          - 0.6
+          - 0.7
+          - 0.8
+          - 0.9
+          - 1.0
+        recommend:
+          popularity_weight: 0.9
+    outs:
+    - path:
+        outputs/book_encoder_contrastive_256/book_embeddings_contrastive_256.npy
+      hash: md5
+      md5: 16bfe5fd4d70a91fd27ed01eb67ba2a4
+      size: 21722240
+      isexec: true
+    - path: processed_data/popularity_tuning.png
+      hash: md5
+      md5: cff0c8fe4c674f650da5754c1db5cd3e
+      size: 39088
+      isexec: true

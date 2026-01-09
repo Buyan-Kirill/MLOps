@@ -18,6 +18,50 @@ def load_config():
         return yaml.safe_load(f)
 
 
+def test_raw_datasets_exist_and_valid():
+    """Проверяет, что сырые CSV-файлы из Kaggle присутствуют и содержат базово корректные данные."""
+    config = load_config()
+    dataset_dir = config["paths"]["dataset_dir"]
+
+    BEST_DIR = os.path.join(dataset_dir, "best_books_dataset")
+    RATING_DIR = os.path.join(dataset_dir, "all_books_dataset")
+
+    csv_files = [f for f in os.listdir(BEST_DIR) if f.endswith(".csv")]
+    assert csv_files, f"Не найдено CSV в {BEST_DIR}"
+    best_csv = os.path.join(BEST_DIR, csv_files[0])
+    try:
+        books_raw = pd.read_csv(best_csv, on_bad_lines="skip", low_memory=False)
+    except Exception as e:
+        raise AssertionError(f"Не удалось прочитать {best_csv}: {e}")
+
+    required_books = ["bookId", "title", "author", "description", "genres", "rating"]
+    missing_books = [c for c in required_books if c not in books_raw.columns]
+    assert (
+        not missing_books
+    ), f"В сырых данных best_books отсутствуют колонки: {missing_books}"
+    assert len(books_raw) > 0, "best_books — пустой датафрейм"
+
+    rating_files = [
+        f
+        for f in os.listdir(RATING_DIR)
+        if f.startswith("user_rating") and f.endswith(".csv")
+    ]
+    assert rating_files, f"Не найдено user_rating*.csv в {RATING_DIR}"
+
+    rating_csv = os.path.join(RATING_DIR, rating_files[0])
+    try:
+        ratings_raw = pd.read_csv(rating_csv, on_bad_lines="skip", low_memory=False)
+    except Exception as e:
+        raise AssertionError(f"Не удалось прочитать {rating_csv}: {e}")
+
+    required_ratings = ["ID", "Name", "Rating"]
+    missing_ratings = [c for c in required_ratings if c not in ratings_raw.columns]
+    assert (
+        not missing_ratings
+    ), f"В сырых данных {rating_csv} отсутствуют колонки: {missing_ratings}"
+    assert len(ratings_raw) > 0, f"{rating_csv} — пустой датафрейм"
+
+
 def get_processed_data_dir():
     config = load_config()
     return config["paths"]["processed_data_dir"]

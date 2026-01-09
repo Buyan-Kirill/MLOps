@@ -4,20 +4,37 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      DATASET_DIR: data
+      PROCESSED_DATA_DIR: processed_data
+      OUTPUTS_DIR: outputs
+
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        # Убедись, что dvc[s3] ставится, если его нет в requirements.txt
+        pip install "dvc[s3]" pytest
 
-      - name: Run tests
-        run: |
-          pytest tests/ -v --tb=short
+    - name: Pull data from DVC (Yandex Cloud)
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.YC_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.YC_SECRET_ACCESS_KEY }}
+      run: |
+        dvc pull
+
+    - name: Run tests
+      run: |
+        pytest tests/ -v --tb=short
+      env:
+        TEST_MODE: ci

@@ -1,0 +1,6 @@
+[core]
+    remote = yandex
+    autostage = true
+['remote "yandex"']
+    url = s3://ml-ops-bucket/dvc_store
+    endpointurl = https://storage.yandexcloud.net

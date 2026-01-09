@@ -17,6 +17,8 @@ from tqdm import tqdm
 import sys
 import random
 from typing import Tuple
+import subprocess
+import mlflow
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
@@ -33,6 +35,29 @@ logging.basicConfig(
     ],
 )
 logger = logging.getLogger(__name__)
+
+
+def get_git_commit_hash():
+    try:
+        return (
+            subprocess.check_output(["git", "rev-parse", "HEAD"])
+            .strip()
+            .decode("utf-8")
+        )
+    except Exception:
+        return "unknown"
+
+
+def get_dvc_hash(dvc_file_path):
+    if not os.path.exists(dvc_file_path):
+        return "unknown"
+    try:
+        with open(dvc_file_path, "r") as f:
+            content = yaml.safe_load(f)
+            return content.get("outs", [{}])[0].get("md5", "unknown")
+    except Exception as e:
+        logger.warning(f"Could not read DVC hash from {dvc_file_path}: {e}")
+        return "unknown"
 
 
 class ContrastiveBookDataset(Dataset):
@@ -202,143 +227,182 @@ def main(config_path: str) -> None:
     with open(config_path) as f:
         config = yaml.safe_load(f)
 
-    seed = config["seed"]
-    data_seed = config.get("data_seed", seed)
+    mlflow.set_experiment("books_weighted_contrastive_train")
 
-    os.environ["PYTHONHASHSEED"] = str(seed)
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed(seed)
-        torch.cuda.manual_seed_all(seed)
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
-        torch.use_deterministic_algorithms(True, warn_only=True)
-        os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
-        logger.info("GPU детерминизм включён (cudnn.deterministic=True)")
+    with mlflow.start_run():
+        mlflow.log_params(config["training"])
+        if "embeddings" in config:
+            mlflow.log_params(config["embeddings"])
+        mlflow.log_param("seed", config["seed"])
 
-    logger.info(f"seed={seed}, data_seed={data_seed}")
+        git_hash = get_git_commit_hash()
+        mlflow.set_tag("git_commit", git_hash)
+        logger.info(
+            f"MLflow Run ID: {mlflow.active_run().info.run_id}, Git Hash: {git_hash}"
+        )
 
-    INPUT_DIR = config["paths"]["processed_data_dir"]
-    OUTPUT_DIR = config["paths"]["outputs_dir"]
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    os.makedirs(config["paths"]["logs_dir"], exist_ok=True)
+        if os.path.exists("data.dvc"):
+            data_dvc_hash = get_dvc_hash("data.dvc")
+            mlflow.set_tag("data.dvc_hash", data_dvc_hash)
+            logger.info(f"Data dvc hash: {data_dvc_hash} logged to MLflow")
 
-    logger.info("Загрузка данных...")
-    book_embeddings = np.load(os.path.join(INPUT_DIR, "book_embeddings_multimodal.npy"))
-    books_meta = pd.read_csv(
-        os.path.join(INPUT_DIR, "books_meta_multimodal.csv"),
-        keep_default_na=False,
-        na_values=[],
-    )
-    desc_original = np.load(os.path.join(INPUT_DIR, "book_descriptions_original.npy"))
+        if os.path.exists("dvc.lock"):
+            mlflow.log_artifact("dvc.lock", "dvc_metadata")
+            logger.info("dvc.lock logged to MLflow")
 
-    dataset = ContrastiveBookDataset(
-        book_embeddings,
-        books_meta,
-        desc_original,
-        num_negatives=config["training"]["num_negatives"],
-        genre_jaccard_threshold=config["training"]["genre_jaccard_threshold"],
-        desc_sim_threshold=config["training"]["description_sim_threshold"],
-        seed=data_seed,
-    )
+        seed = config["seed"]
+        data_seed = seed
 
-    g = torch.Generator()
-    g.manual_seed(data_seed)
-    dataloader = DataLoader(
-        dataset,
-        batch_size=config["training"]["batch_size"],
-        shuffle=True,
-        generator=g,
-        num_workers=0,
-        pin_memory=torch.cuda.is_available(),
-    )
+        os.environ["PYTHONHASHSEED"] = str(seed)
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed(seed)
+            torch.cuda.manual_seed_all(seed)
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
+            torch.use_deterministic_algorithms(True, warn_only=True)
+            os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+            logger.info("GPU детерминизм включён (cudnn.deterministic=True)")
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    logger.info(f"Используется устройство: {device}")
+        logger.info(f"seed={seed}, data_seed={data_seed}")
 
-    config_model = BookEncoderConfig(
-        input_dim=book_embeddings.shape[1],
-        hidden_dim=config["training"]["hidden_dim"],
-        output_dim=config["training"]["output_dim"],
-    )
-    model = BookEncoderModel(config_model).to(device)
+        INPUT_DIR = config["paths"]["processed_data_dir"]
+        OUTPUT_DIR = config["paths"]["outputs_dir"]
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        os.makedirs(config["paths"]["logs_dir"], exist_ok=True)
 
-    encoder_path = os.path.join(
-        OUTPUT_DIR,
-        f"book_encoder_contrastive_{config['training']['output_dim']}",
-    )
-    if os.path.exists(os.path.join(encoder_path, "pytorch_model.bin")):
-        logger.info(f"Загружаем чекпоинт: {encoder_path}")
-        model = BookEncoderModel.from_pretrained(encoder_path).to(device)
-    else:
-        logger.info("Начинаем обучение с нуля.")
+        logger.info("Загрузка данных...")
+        book_embeddings = np.load(
+            os.path.join(INPUT_DIR, "book_embeddings_multimodal.npy")
+        )
+        books_meta = pd.read_csv(
+            os.path.join(INPUT_DIR, "books_meta_multimodal.csv"),
+            keep_default_na=False,
+            na_values=[],
+        )
+        desc_original = np.load(
+            os.path.join(INPUT_DIR, "book_descriptions_original.npy")
+        )
 
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=float(config["training"]["lr"]),
-        weight_decay=float(config["training"]["weight_decay"]),
-    )
+        dataset = ContrastiveBookDataset(
+            book_embeddings,
+            books_meta,
+            desc_original,
+            num_negatives=config["training"]["num_negatives"],
+            genre_jaccard_threshold=config["training"]["genre_jaccard_threshold"],
+            desc_sim_threshold=config["training"]["description_sim_threshold"],
+            seed=data_seed,
+        )
 
-    total_steps = len(dataloader) * config["training"]["epochs"]
-    warmup_steps = len(dataloader) * config["training"]["warmup_epochs"]
-    main_steps = total_steps - warmup_steps
+        g = torch.Generator()
+        g.manual_seed(data_seed)
+        dataloader = DataLoader(
+            dataset,
+            batch_size=config["training"]["batch_size"],
+            shuffle=True,
+            generator=g,
+            num_workers=0,
+            pin_memory=torch.cuda.is_available(),
+        )
 
-    scheduler_warmup = LinearLR(
-        optimizer,
-        start_factor=float(config["training"]["start_factor"]),
-        end_factor=float(config["training"]["end_factor"]),
-        total_iters=warmup_steps,
-    )
-    scheduler_cosine = CosineAnnealingLR(
-        optimizer,
-        T_max=main_steps,
-        eta_min=float(config["training"].get("eta_min", 1e-6)),
-    )
-    scheduler = SequentialLR(
-        optimizer,
-        schedulers=[scheduler_warmup, scheduler_cosine],
-        milestones=[warmup_steps],
-    )
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        logger.info(f"Используется устройство: {device}")
 
-    logger.info("Обучение...")
-    for epoch in range(config["training"]["epochs"]):
-        model.train()
-        pbar = tqdm(dataloader, desc=f"Эпоха {epoch + 1}")
-        for batch in pbar:
-            anchor, pos_s, pos_a, pos_g, pos_d, negatives = [
-                x.to(device, non_blocking=True) for x in batch
-            ]
-            optimizer.zero_grad()
-            a_emb = model(anchor)
-            ps_emb = model(pos_s)
-            pa_emb = model(pos_a)
-            pg_emb = model(pos_g)
-            pd_emb = model(pos_d)
-            n_emb = model(negatives)
-            w = config["training"]["weights"]
-            loss = weighted_contrastive_loss(
-                a_emb,
-                ps_emb,
-                pa_emb,
-                pg_emb,
-                pd_emb,
-                n_emb,
-                w_series=w["series"],
-                w_author=w["author"],
-                w_genre=w["genre"],
-                w_desc=w["desc"],
-                margin=config["training"]["margin"],
-            )
-            loss.backward()
-            optimizer.step()
-            scheduler.step()
-            pbar.set_postfix(loss=f"{loss.item():.6f}")
+        config_model = BookEncoderConfig(
+            input_dim=book_embeddings.shape[1],
+            hidden_dim=config["training"]["hidden_dim"],
+            output_dim=config["training"]["output_dim"],
+        )
+        model = BookEncoderModel(config_model).to(device)
 
-    model.eval()
-    model.save_pretrained(encoder_path)
-    logger.info(f"Модель сохранена: {encoder_path}")
+        encoder_path = os.path.join(
+            OUTPUT_DIR,
+            f"book_encoder_contrastive_{config['training']['output_dim']}",
+        )
+        if os.path.exists(os.path.join(encoder_path, "pytorch_model.bin")):
+            logger.info(f"Загружаем чекпоинт: {encoder_path}")
+            model = BookEncoderModel.from_pretrained(encoder_path).to(device)
+        else:
+            logger.info("Начинаем обучение с нуля.")
+
+        optimizer = torch.optim.AdamW(
+            model.parameters(),
+            lr=float(config["training"]["lr"]),
+            weight_decay=float(config["training"]["weight_decay"]),
+        )
+
+        total_steps = len(dataloader) * config["training"]["epochs"]
+        warmup_steps = len(dataloader) * config["training"]["warmup_epochs"]
+        main_steps = total_steps - warmup_steps
+
+        scheduler_warmup = LinearLR(
+            optimizer,
+            start_factor=float(config["training"]["start_factor"]),
+            end_factor=float(config["training"]["end_factor"]),
+            total_iters=warmup_steps,
+        )
+        scheduler_cosine = CosineAnnealingLR(
+            optimizer,
+            T_max=main_steps,
+            eta_min=float(config["training"].get("eta_min", 1e-6)),
+        )
+        scheduler = SequentialLR(
+            optimizer,
+            schedulers=[scheduler_warmup, scheduler_cosine],
+            milestones=[warmup_steps],
+        )
+
+        logger.info("Обучение...")
+        for epoch in range(config["training"]["epochs"]):
+            model.train()
+            epoch_loss = 0.0
+            pbar = tqdm(dataloader, desc=f"Эпоха {epoch + 1}")
+            for batch in pbar:
+                anchor, pos_s, pos_a, pos_g, pos_d, negatives = [
+                    x.to(device, non_blocking=True) for x in batch
+                ]
+                optimizer.zero_grad()
+                a_emb = model(anchor)
+                ps_emb = model(pos_s)
+                pa_emb = model(pos_a)
+                pg_emb = model(pos_g)
+                pd_emb = model(pos_d)
+                n_emb = model(negatives)
+                w = config["training"]["weights"]
+                loss = weighted_contrastive_loss(
+                    a_emb,
+                    ps_emb,
+                    pa_emb,
+                    pg_emb,
+                    pd_emb,
+                    n_emb,
+                    w_series=w["series"],
+                    w_author=w["author"],
+                    w_genre=w["genre"],
+                    w_desc=w["desc"],
+                    margin=config["training"]["margin"],
+                )
+                loss.backward()
+                optimizer.step()
+                scheduler.step()
+
+                cur_loss = loss.item()
+                epoch_loss += cur_loss
+                pbar.set_postfix(loss=f"{cur_loss:.6f}")
+
+            avg_loss = epoch_loss / len(dataloader)
+            mlflow.log_metric("train_loss", avg_loss, step=epoch)
+            mlflow.log_metric("lr", optimizer.param_groups[0]["lr"], step=epoch)
+            logger.info(f"Epoch {epoch + 1} finished. Avg loss: {avg_loss}")
+
+        model.eval()
+        model.save_pretrained(encoder_path)
+        logger.info(f"Модель сохранена: {encoder_path}")
+
+        mlflow.log_artifacts(encoder_path, artifact_path="model")
+        logger.info(f"Model artifacts logged to MLflow from {encoder_path}")
 
 
 if __name__ == "__main__":

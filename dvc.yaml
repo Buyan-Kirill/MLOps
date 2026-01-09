@@ -1,0 +1,54 @@
+stages:
+  prepare:
+    # Объединяем очистку данных и создание начальных эмбеддингов (MiniLM)
+    cmd: venv/bin/python3 scripts/prepare_data.py --config configs/default.yaml && venv/bin/python3 scripts/embed.py --config configs/default.yaml
+    deps:
+      - data/best_books_dataset
+      - data/all_books_dataset
+      - scripts/prepare_data.py
+      - scripts/embed.py
+      - src
+    params:
+      - configs/default.yaml:
+        - paths
+        - seed
+        - embeddings
+    outs:
+      - processed_data/books_clean.parquet
+      - processed_data/ratings_clean.parquet
+      - processed_data/books_meta_multimodal.csv
+      - processed_data/book_descriptions_original.npy
+      - processed_data/book_embeddings_multimodal.npy
+
+  train:
+    cmd: venv/bin/python3 scripts/train.py --config configs/default.yaml
+    deps:
+      - processed_data/book_embeddings_multimodal.npy
+      - processed_data/books_meta_multimodal.csv
+      - processed_data/book_descriptions_original.npy
+      - scripts/train.py
+      - src
+    params:
+      - configs/default.yaml:
+        - training
+        - seed
+    outs:
+      - outputs/book_encoder_contrastive_256/config.json
+      - outputs/book_encoder_contrastive_256/model.safetensors
+
+  evaluate:
+    cmd: venv/bin/python3 scripts/encode_embeddings.py --config configs/default.yaml && venv/bin/python3 scripts/evaluate_recommender.py --config configs/default.yaml
+    deps:
+      - outputs/book_encoder_contrastive_256/model.safetensors
+      - processed_data/books_clean.parquet
+      - processed_data/ratings_clean.parquet
+      - scripts/encode_embeddings.py
+      - scripts/evaluate_recommender.py
+      - src
+    params:
+      - configs/default.yaml:
+        - evaluation
+        - recommend
+    outs:
+      - outputs/book_encoder_contrastive_256/book_embeddings_contrastive_256.npy
+      - processed_data/popularity_tuning.png
