@@ -136,7 +136,6 @@ def validate_ratings_df(df: pd.DataFrame, name: str = "ratings") -> pd.DataFrame
         inplace=True,
     )
 
-    # Удаляем пустые
     df = df[
         df["rating_text"].notna()
         & (df["rating_text"] != "This user doesn't have any rating")

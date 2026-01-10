@@ -1,0 +1,10 @@
+.git/
+.gitignore/
+.dvc/config.local
+.dvc/cache
+.dvc/tmp
+venv/
+__pycache__/
+mlruns/
+logs/
+data/
