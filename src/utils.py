@@ -62,3 +62,10 @@ def parse_genres(genres_str: Union[str, Any]) -> List[str]:
     except (ValueError, SyntaxError):
         pass
     return []
+
+
+def robust_parse_genres(x):
+    if not isinstance(x, str) or not x.strip():
+        return []
+    x = x.strip()
+    return [g.strip() for g in x.split(",") if g.strip()]
