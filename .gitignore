@@ -17,3 +17,4 @@ outputs/
 mlruns/
 .trash/
 model_store/
+/data
