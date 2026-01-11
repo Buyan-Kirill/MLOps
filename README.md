@@ -13,70 +13,103 @@
 
 Шаги для вопроизведения результатов:
 
-1-2) Настройка окружения и данных:
+1) 2) Настройка окружения и данных:
+
 git clone git@github.com:Buyan-Kirill/MLOps.git
+
 cd MLOps
+
 python3 -m venv venv (если ещё нет)
+
 source venv/bin/activate
+
 pip install -r requirements.txt
-dvc pull (для скачивания нужны ключи, так как данные хранятся в облаке в Yandex Object Cloud. Файл config.local с ключами необходимо будет положить в .dvc папку. При необходимости получения ключей можно написать мне в телеграмм: @BuyanKirill)
+
+dvc pull (для скачивания нужны ключи, так как данные хранятся в облаке в Yandex Object Cloud. Файл config.local с ключамии необходимо будет положить в .dvc папку. При необходимости получения ключей можно написать мне в телеграмм: @BuyanKirill)
+
 В итоге появятся все необходимые файлы с кодом и данными
 
 Можно запустить пайплайн заново, для этого нужно выполнить следующие шаги:
+
 mkdir -p logs/ processed_data/ outputs/
+
 dvc repro (в таком случае в папке mlruns появится информация о текущем запуске)
 
 3) Оффлайн-инференс:
+
 docker build -t ml-app:v1 .
+
 * Первый вариант (подаём только название, автора и поставленный вами рейтинг). Работает только если книга была в датасете (поскольку для построения нового эмбединга требуется ещё описание и жанр):
+
 echo 'title,author,rating' > docker_task/test_on_books_in_dataset.csv
+
 echo '"To Kill a Mockingbird","Harper Lee",5' >> docker_task/test_on_books_in_dataset.csv
-docker run --rm \
-  -v "$(pwd)/.dvc/config.local:/app/.dvc/config.local" \
-  -v "$(pwd):/io" \
-  ml-app:v1 \
-  python src/predict.py \
-  --input_path /io/docker_task/test_on_books_in_dataset.csv \
+
+docker run --rm
+  -v "$(pwd)/.dvc/config.local:/app/.dvc/config.local"
+  -v "$(pwd):/io"
+  ml-app:v1
+  python src/predict.py
+  --input_path /io/docker_task/test_on_books_in_dataset.csv
   --output_path /io/docker_task/result.csv
-  
+
 * Второй вариант (название, автор, рейтинг, а также описание и жанры). Для случая, когда книги не нашлось в датасете и нужно построить новый эмбединг для книги а не просто сопоставить с существующим:
+
 echo 'title,author,rating,description,genres' > docker_task/test_on_books_outside_dataset.csv
+
 echo '"Test Book","Unknown",5,"A book about docker tests","Tech"' >> docker_task/test_on_books_outside_dataset.csv
-Запустите контейнер:
-Мы пробрасываем локальный конфиг .dvc/config.local внутрь контейнера для авторизации.bash
-docker run --rm \
-  -v "$(pwd)/.dvc/config.local:/app/.dvc/config.local" \
-  -v "$(pwd):/io" \
-  ml-app:v1 \
-  python src/predict.py \
-  --input_path /io/docker_task/test_on_books_outside_dataset.csv \
+
+Запуск контейнера:
+
+docker run --rm
+  -v "$(pwd)/.dvc/config.local:/app/.dvc/config.local"
+  -v "$(pwd):/io"
+  ml-app:v1
+  python src/predict.py
+  --input_path /io/docker_task/test_on_books_outside_dataset.csv
   --output_path /io/docker_task/result.csv
+
 В обоих случаях в папке docker_task появится result.csv с рекомендациями.
 
 4) Онлайн сервис:
+
 python3 torch_server/change_model_extension.py (посокльку изначально модель сохраняется в формате safetensor)
+
 mkdir -p model_store
+
 EMB_PATH=outputs/book_encoder_contrastive_256/book_embeddings_contrastive_256.npy (итоговые эмбеддинги)
 
 Сборка .mar файла:
-torch-model-archiver --model-name book-recs \
-  --version 1.0 \
-  --serialized-file outputs/book_encoder_contrastive_256/model.pt \
-  --handler src/torchserve_handler.py \
-  --extra-files "configs/default.yaml,outputs/book_encoder_contrastive_256/config.json,src/encoder.py,src/utils.py,src/recommender.py,src/cold_start.py,processed_data/books_meta_multimodal.csv,$EMB_PATH" \
+
+torch-model-archiver --model-name book-recs
+  --version 1.0
+  --serialized-file outputs/book_encoder_contrastive_256/model.pt
+  --handler src/torchserve_handler.py
+  --extra-files "configs/default.yaml,outputs/book_encoder_contrastive_256/config.json,src/encoder.py,src/utils.py,src/recommender.py,src/cold_start.py,processed_data/books_meta_multimodal.csv,$EMB_PATH"
   --export-path model_store --force
+
 docker build -t recs-service:v1 -f Dockerfile_torchserve .
 
 Запуск сервера:
-docker run --rm -d \
-  -p 8080:8080 \
-  -p 8081:8081 \
-  --name recs \
-  -v "$(pwd)/torch_server/config.properties:/home/model-server/config.properties" \
-  recs-service:v1 \
+
+docker run --rm -d
+  -p 8080:8080
+  -p 8081:8081
+  --name recs
+  -v "$(pwd)/torch_server/config.properties:/home/model-server/config.properties"
+  recs-service:v1
   torchserve --start --model-store model-store --ts-config config.properties --ncs
-  
+
 Отправка запросов (примеры аналогичны примерам выше):
-curl -X POST http://localhost:8080/predictions/recs \
-  -H "Content-Type: application/json" \
-  -d @torch_server/cold_start_test.json
+
+curl -X POST http://localhost:8080/predictions/recs
+  -H "Content-Type: application/json"
+  -d @torch_server/test_on_books_in_dataset.json
+
+curl -X POST http://localhost:8080/predictions/recs
+  -H "Content-Type: application/json"
+  -d @torch_server/test_on_books_outside_dataset.json
+
+Остановка:
+
+docker stop recs
