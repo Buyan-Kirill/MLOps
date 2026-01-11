@@ -21,14 +21,14 @@ stages:
       isexec: true
     - path: scripts/prepare_data.py
       hash: md5
-      md5: 7bf5611bd2edbb16f3e3ac4836e48e0e
-      size: 11362
+      md5: 1e73c3bab479010d17ae4d4f1c11f6b1
+      size: 11328
       isexec: true
     - path: src
       hash: md5
-      md5: f0bb96f1bddbfaf422e6da8195635ec0.dir
-      size: 19551
-      nfiles: 8
+      md5: 553fc97c0554ced3304f345f944d99a3.dir
+      size: 39399
+      nfiles: 11
     params:
       configs/default.yaml:
         embeddings:
@@ -52,8 +52,8 @@ stages:
       isexec: true
     - path: processed_data/books_clean.parquet
       hash: md5
-      md5: f5afe347e0e03ba9a4c7a8804dd5b20a
-      size: 18019138
+      md5: 5970f271ac36aa2e9803f01346cd86b0
+      size: 18276360
       isexec: true
     - path: processed_data/books_meta_multimodal.csv
       hash: md5
@@ -62,8 +62,8 @@ stages:
       isexec: true
     - path: processed_data/ratings_clean.parquet
       hash: md5
-      md5: 3517c02c151aca3109d72ae074e9edc2
-      size: 85241746
+      md5: 213c429b3d3ddb79a55ace771450cf84
+      size: 86049974
       isexec: true
   train:
     cmd: venv/bin/python3 scripts/train.py --config configs/default.yaml
@@ -85,14 +85,14 @@ stages:
       isexec: true
     - path: scripts/train.py
       hash: md5
-      md5: 7b373c39fd6a22db0c81b74764a0a332
+      md5: feb61438b2602321ea1bfda849dd7289
       size: 14473
       isexec: true
     - path: src
       hash: md5
-      md5: f0bb96f1bddbfaf422e6da8195635ec0.dir
-      size: 19551
-      nfiles: 8
+      md5: 553fc97c0554ced3304f345f944d99a3.dir
+      size: 39399
+      nfiles: 11
     params:
       configs/default.yaml:
         seed: 42
@@ -139,13 +139,13 @@ stages:
       isexec: true
     - path: processed_data/books_clean.parquet
       hash: md5
-      md5: f5afe347e0e03ba9a4c7a8804dd5b20a
-      size: 18019138
+      md5: 5970f271ac36aa2e9803f01346cd86b0
+      size: 18276360
       isexec: true
     - path: processed_data/ratings_clean.parquet
       hash: md5
-      md5: 3517c02c151aca3109d72ae074e9edc2
-      size: 85241746
+      md5: 213c429b3d3ddb79a55ace771450cf84
+      size: 86049974
       isexec: true
     - path: scripts/encode_embeddings.py
       hash: md5
@@ -159,9 +159,9 @@ stages:
       isexec: true
     - path: src
       hash: md5
-      md5: f0bb96f1bddbfaf422e6da8195635ec0.dir
-      size: 19551
-      nfiles: 8
+      md5: 553fc97c0554ced3304f345f944d99a3.dir
+      size: 39399
+      nfiles: 11
     params:
       configs/default.yaml:
         evaluation:
