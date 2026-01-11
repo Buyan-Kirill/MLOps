@@ -5,7 +5,6 @@ import logging
 import pandas as pd
 import numpy as np
 import yaml
-from difflib import get_close_matches
 from ts.torch_handler.base_handler import BaseHandler
 from sentence_transformers import SentenceTransformer
 from sklearn.preprocessing import MultiLabelBinarizer
@@ -13,70 +12,16 @@ from sklearn.preprocessing import MultiLabelBinarizer
 try:
     from encoder import BookEncoderModel, BookEncoderConfig
     from recommender import LightweightRecommender
-    from utils import clean_html, safe_str, robust_parse_genres
+    from utils import robust_parse_genres, find_book_id_by_title_author
+    from cold_start import ColdStartProcessor
 except ImportError:
     from src.encoder import BookEncoderModel, BookEncoderConfig
     from src.recommender import LightweightRecommender
-    from src.utils import clean_html, safe_str, robust_parse_genres
+    from src.utils import robust_parse_genres, find_book_id_by_title_author
+    from src.cold_start import ColdStartProcessor
+
 
 logger = logging.getLogger(__name__)
-
-
-def find_book_id_by_title_author(title: str, author: str, books_meta: pd.DataFrame):
-    t_norm = str(title).lower().strip()
-    a_norm = str(author).lower().strip()
-
-    exact = books_meta[
-        (books_meta["_title_norm"] == t_norm) & (books_meta["_author_norm"] == a_norm)
-    ]
-    if not exact.empty:
-        return str(exact.iloc[0]["bookId"]), "Exact match"
-
-    by_author = books_meta[
-        books_meta["_author_norm"].str.contains(a_norm, na=False, regex=False)
-    ]
-    if len(by_author) > 0:
-        titles = by_author["_title_norm"].tolist()
-        matches = get_close_matches(t_norm, titles, n=1, cutoff=0.6)
-        if matches:
-            cand = by_author[by_author["_title_norm"] == matches[0]].iloc[0]
-            return str(cand["bookId"]), "Fuzzy match by author"
-
-    return None, "Not found"
-
-
-class ColdStartProcessor:
-    def __init__(self, model, base_model, mlb, device="cpu"):
-        self.device = device
-        self.base_model = base_model
-        self.mlb = mlb
-        self.encoder_model = model
-
-    def process_row(self, row_dict):
-        desc_clean = clean_html(str(row_dict.get("description", "")))
-        author_clean = safe_str(str(row_dict.get("author", "")))
-        series_clean = safe_str(str(row_dict.get("series", "")))
-
-        raw_genres = str(row_dict.get("genres", ""))
-        if isinstance(row_dict.get("genres"), list):
-            genres_parsed = row_dict.get("genres")
-        else:
-            genres_parsed = robust_parse_genres(raw_genres)
-
-        with torch.no_grad():
-            series_emb = self.base_model.encode([series_clean])
-            author_emb = self.base_model.encode([author_clean])
-            desc_emb = self.base_model.encode([desc_clean])
-
-        genre_vec = self.mlb.transform([genres_parsed]).astype(np.float32)
-
-        combined = np.hstack([series_emb, author_emb, desc_emb, genre_vec])
-        input_tensor = torch.tensor(combined, dtype=torch.float32).to(self.device)
-
-        with torch.no_grad():
-            final_emb = self.encoder_model(input_tensor).cpu().numpy()
-
-        return final_emb[0]
 
 
 class RecommendationHandler(BaseHandler):
@@ -151,7 +96,7 @@ class RecommendationHandler(BaseHandler):
             if isinstance(row, (bytes, bytearray)):
                 row = json.loads(row.decode("utf-8"))
 
-            # Ожидаем: {"history": [...], "k": 5}
+            # {"history": [...], "k": 5}
             processed_reqs.append(row)
         return processed_reqs
 
@@ -161,7 +106,7 @@ class RecommendationHandler(BaseHandler):
         for req in inputs:
             user_input_list = req.get(
                 "history", []
-            )  # Список словарей {title, author, rating, ...}
+            )  # [{title, author, rating, ...} ... ]
             k = req.get("k", 5)
 
             user_history_ids = []

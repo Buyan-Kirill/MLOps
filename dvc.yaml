@@ -1,6 +1,5 @@
 stages:
   prepare:
-    # Объединяем очистку данных и создание начальных эмбеддингов (MiniLM)
     cmd: venv/bin/python3 scripts/prepare_data.py --config configs/default.yaml && venv/bin/python3 scripts/embed.py --config configs/default.yaml
     deps:
       - data/best_books_dataset

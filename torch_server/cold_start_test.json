@@ -1,0 +1,12 @@
+{
+  "history": [
+    {
+      "title": "My Unique Book",
+      "author": "Kirill",
+      "rating": 5,
+      "description": "A futuristic story about space travel and AI robots fighting for freedom.",
+      "genres": "scifiction, action"
+    }
+  ],
+  "k": 3
+}

@@ -24,10 +24,10 @@ def export(config_path):
     model = BookEncoderModel.from_pretrained(model_dir)
     model.eval()
 
-    # Сохраняем веса
     torch.save(model.state_dict(), os.path.join(model_dir, "model.pt"))
     print(f"Saved model.pt to {model_dir}")
 
 
 if __name__ == "__main__":
+    print("start")
     export("configs/default.yaml")

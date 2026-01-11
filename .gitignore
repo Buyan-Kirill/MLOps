@@ -16,3 +16,4 @@ processed_data/
 outputs/
 mlruns/
 .trash/
+model_store/

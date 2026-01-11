@@ -1,0 +1,21 @@
+FROM pytorch/torchserve:latest-cpu
+
+USER root
+
+RUN pip install --no-cache-dir \
+    pandas \
+    numpy \
+    scipy \
+    sentence-transformers \
+    scikit-learn \
+    pyyaml
+
+COPY model_store/book-recs.mar /home/model-server/model-store/
+
+USER model-server
+
+CMD ["torchserve", \
+     "--start", \
+     "--model-store", "model-store", \
+     "--models", "recs=book-recs.mar", \
+     "--ncs"]

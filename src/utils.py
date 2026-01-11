@@ -7,6 +7,7 @@ import logging
 import pandas as pd
 import ast
 from typing import Any, Set, List, Union
+from difflib import get_close_matches
 
 
 def set_seed(seed: int = 42) -> None:
@@ -69,3 +70,26 @@ def robust_parse_genres(x):
         return []
     x = x.strip()
     return [g.strip() for g in x.split(",") if g.strip()]
+
+
+def find_book_id_by_title_author(title: str, author: str, books_meta: pd.DataFrame):
+    t_norm = str(title).lower().strip()
+    a_norm = str(author).lower().strip()
+
+    exact = books_meta[
+        (books_meta["_title_norm"] == t_norm) & (books_meta["_author_norm"] == a_norm)
+    ]
+    if not exact.empty:
+        return str(exact.iloc[0]["bookId"]), "Exact match"
+
+    by_author = books_meta[
+        books_meta["_author_norm"].str.contains(a_norm, na=False, regex=False)
+    ]
+    if len(by_author) > 0:
+        titles = by_author["_title_norm"].tolist()
+        matches = get_close_matches(t_norm, titles, n=1, cutoff=0.6)
+        if matches:
+            cand = by_author[by_author["_title_norm"] == matches[0]].iloc[0]
+            return str(cand["bookId"]), "Fuzzy match by author"
+
+    return None, "Not found"

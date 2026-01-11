@@ -23,8 +23,6 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        # Убедись, что dvc[s3] ставится, если его нет в requirements.txt
-        pip install "dvc[s3]" pytest
 
     - name: Pull data from DVC (Yandex Cloud)
       env:
